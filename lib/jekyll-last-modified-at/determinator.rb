@@ -3,13 +3,14 @@
 module Jekyll
   module LastModifiedAt
     class Determinator
-      attr_reader :site_source, :page_path
+      attr_reader :site_source, :page_path, :dependencies
       attr_accessor :format
 
-      def initialize(site_source, page_path, format = nil)
-        @site_source = site_source
-        @page_path   = page_path
-        @format      = format || '%d-%b-%y'
+      def initialize(site_source, dependencies, page_path, format = nil)
+        @site_source  = site_source
+        @page_path    = page_path
+        @format       = format || '%d-%b-%y'
+        @dependencies = dependencies
       end
 
       def git
@@ -30,7 +31,15 @@ module Jekyll
       def last_modified_at_time
         raise Errno::ENOENT, "#{absolute_path_to_article} does not exist!" unless File.exist? absolute_path_to_article
 
-        Time.at(last_modified_at_unix.to_i)
+        selftime = Time.at(last_modified_at_unix.to_i)
+        collectiontime = (dependencies['collections'] || []).flat_map { |c| c.docs }
+          .map { |d| d.data['last_modified_at'].last_modified_at_time }
+          .compact
+          .max
+        datatime = (dependencies['data'] || []).map { |d| Determinator.new(@site_source, {}, ['_data/', d, '.yml'].join).last_modified_at_time }
+          .compact
+          .max
+        [selftime, collectiontime, datatime].compact.max
       end
 
       def last_modified_at_unix

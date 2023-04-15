@@ -6,8 +6,14 @@ module Jekyll
       def self.add_determinator_proc
         proc { |item|
           format = item.site.config.dig('last-modified-at', 'date-format')
-          item.data['last_modified_at'] = Determinator.new(item.site.source, item.path,
-                                                           format)
+
+          dependencies = (item.data['lastmod_dependencies'] || {}).clone
+          if dependencies.has_key?('collections')
+            dependencies['collections'] = dependencies['collections'].map { |c| item.site.collections[c] }
+          end
+
+          item.data['last_modified_at'] = Determinator.new(item.site.source, dependencies,
+                                                           item.path, format)
         }
       end
 
